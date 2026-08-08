@@ -149,6 +149,9 @@
   let shootTimer = 0;
   let bunkers = [];
 
+  const ufo = { x: 0, y: 34, w: 34, h: 16, dir: 1, speed: 130, active: false };
+  let ufoTimer = 8 + Math.random() * 8;
+
   const ROWS = 5, COLS = 10;
   const INV_W = 28, INV_H = 20, GAP_X = 14, GAP_Y = 16;
   const GRID_LEFT = (W - (COLS * (INV_W + GAP_X) - GAP_X)) / 2;
@@ -215,6 +218,8 @@
     bullets = []; enemyBullets = [];
     makeInvaders();
     makeBunkers();
+    ufo.active = false;
+    ufoTimer = 8 + Math.random() * 8;
     updateHud();
   }
 
@@ -328,6 +333,20 @@
     for (const b of enemyBullets) b.y += b.speed * dt;
     enemyBullets = enemyBullets.filter(b => b.y < H);
 
+    // UFO (mystery ship)
+    if (ufo.active) {
+      ufo.x += ufo.dir * ufo.speed * dt;
+      if (ufo.x < -ufo.w - 10 || ufo.x > W + 10) ufo.active = false;
+    } else {
+      ufoTimer -= dt;
+      if (ufoTimer <= 0) {
+        ufo.dir = Math.random() < 0.5 ? 1 : -1;
+        ufo.x = ufo.dir === 1 ? -ufo.w : W + ufo.w;
+        ufo.active = true;
+        ufoTimer = 15 + Math.random() * 15;
+      }
+    }
+
     // invader movement
     const alive = aliveInvaders();
     if (alive.length > 0) {
@@ -391,6 +410,21 @@
       }
     }
     bullets = bullets.filter(b => !b.dead);
+
+    // collisions: player bullets vs UFO
+    if (ufo.active) {
+      for (const b of bullets) {
+        if (!b.dead && rectHit(b, ufo)) {
+          b.dead = true;
+          ufo.active = false;
+          const bonus = [50, 100, 150, 300][Math.floor(Math.random() * 4)];
+          score += bonus;
+          updateHud();
+          break;
+        }
+      }
+      bullets = bullets.filter(b => !b.dead);
+    }
 
     // collisions: bullets vs bunkers
     for (const bunker of bunkers) {
@@ -477,6 +511,18 @@
     ctx.shadowBlur = 0;
   }
 
+  function drawUfo() {
+    if (!ufo.active) return;
+    const x = ufo.x, y = ufo.y, w = ufo.w, h = ufo.h;
+    ctx.fillStyle = '#ff00ff';
+    ctx.shadowColor = '#ff00ff';
+    ctx.shadowBlur = 10;
+    ctx.fillRect(x + w * 0.15, y + h * 0.35, w * 0.7, h * 0.4);
+    ctx.fillRect(x, y + h * 0.55, w, h * 0.3);
+    ctx.fillRect(x + w * 0.3, y, w * 0.4, h * 0.35);
+    ctx.shadowBlur = 0;
+  }
+
   function drawBunkers() {
     ctx.fillStyle = '#33cc55';
     for (const bunker of bunkers) {
@@ -503,6 +549,7 @@
   function draw() {
     ctx.clearRect(0, 0, W, H);
     drawStars();
+    drawUfo();
     drawBunkers();
     for (const inv of invaders) drawInvader(inv);
     drawPlayer();
